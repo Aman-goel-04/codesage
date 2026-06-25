@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chatSessions ChatSession[]
+}
+
+model Repo {
+  id                    String   @id @default(cuid())
+  repoUrl               String   @unique
+  defaultBranch         String   @default("main")
+  lastIndexedCommitSha  String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chatSessions ChatSession[]
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  repoId String
+
+  user User @relation(fields: [userId], references: [id])
+  repo Repo @relation(fields: [repoId], references: [id])
+
+  messages Message[]
+  toolCalls ToolCallLog[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  chatSessionId String
+
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+}
+
+model ToolCallLog {
+  id        String   @id @default(cuid())
+  toolName  String
+  input     Json
+  output    Json?
+  createdAt DateTime @default(now())
+
+  chatSessionId String
+
+  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,16 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b && node dist/index.ts"
+  },
+  "dependencies": {
+    "@repo/ui": "*"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
