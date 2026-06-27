@@ -1,16 +1,27 @@
 {
-  "name": "api",
+  "name": "@repo/api",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b && node dist/index.ts"
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@repo/ui": "*"
+    "@repo/db": "workspace:^",
+    "@repo/ui": "*",
+    "@types/express": "^5.0.6",
+    "axios": "^1.18.1",
+    "cookie-parser": "^1.4.7",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/cookie-parser": "^1"
+  }
 }

@@ -1,24 +1,17 @@
 {
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2023",
-    "strict": true,
-    "esModuleInterop": true,
-    "ignoreDeprecations": "6.0",
-    // "rootDir": "./src",
-    // "outDir": "./dist",
-    "types": [],
-    "sourceMap": true,
+
+    "rootDir": "./src",
+    "outDir": "dist",
+
     "declaration": true,
     "declarationMap": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "src/generated"]
 }

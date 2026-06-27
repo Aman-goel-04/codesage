@@ -4,8 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -13,13 +12,23 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  id String @id @default(cuid())
+
+  githubId String @unique
+
+  email String?
+  name  String?
+
+  gh_access_token String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   chatSessions ChatSession[]
+  repos        Repo[]
+  sessions     Session[]
+
+  @@map("users")
 }
 
 model Repo {
@@ -27,11 +36,45 @@ model Repo {
   repoUrl               String   @unique
   defaultBranch         String   @default("main")
   lastIndexedCommitSha  String?
-  
+  isIndexed             Boolean  @default(false)
+  indexStatus           String    @default("pending") // pending | indexing | done | failed
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   chatSessions ChatSession[]
+  files        RepoFile[]
+
+  @@index([userId])
+  @@map("repos")
+}
+
+model RepoFile {
+  id      String @id @default(cuid())
+  path    String
+  content String
+
+  repoId String
+  repo   Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([repoId, path])
+  @@index([repoId])
+  @@map("repo_files")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([token])
 }
 
 model ChatSession {
@@ -43,22 +86,37 @@ model ChatSession {
   userId String
   repoId String
 
-  user User @relation(fields: [userId], references: [id])
-  repo Repo @relation(fields: [repoId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
 
-  messages Message[]
+  messages  Message[]
   toolCalls ToolCallLog[]
+
+  @@index([userId])
+  @@index([repoId])
+  @@map("chat_sessions")
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  role      String
-  content   String
+  id      String       @id @default(cuid())
+  role    MessageRole
+  content String
+
+  metadata Json?
+
   createdAt DateTime @default(now())
 
   chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
 
-  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  @@index([chatSessionId])
+  @@map("messages")
 }
 
 model ToolCallLog {
@@ -69,6 +127,8 @@ model ToolCallLog {
   createdAt DateTime @default(now())
 
   chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
 
-  chatSession ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  @@index([chatSessionId])
+  @@map("tool_call_logs")
 }
