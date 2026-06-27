@@ -31,13 +31,20 @@ model User {
   @@map("users")
 }
 
+enum RepoIndexStatus {
+  pending
+  indexing
+  done
+  failed
+}
+
 model Repo {
   id                    String   @id @default(cuid())
   repoUrl               String   @unique
   defaultBranch         String   @default("main")
   lastIndexedCommitSha  String?
   isIndexed             Boolean  @default(false)
-  indexStatus           String    @default("pending") // pending | indexing | done | failed
+  indexStatus           RepoIndexStatus    @default(pending) // pending | indexing | done | failed
 
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)

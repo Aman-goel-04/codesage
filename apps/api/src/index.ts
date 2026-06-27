@@ -8,6 +8,8 @@ import axios from "axios";
 import { prisma } from "@repo/db";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
+import { getUserFromRequest } from "./middlewares/auth.middleware.js";
+import { ingestRepo } from "./services/ingestRepo.js";
 
 const app = express();
 
@@ -24,6 +26,14 @@ async function start() {
 }
 
 start();
+
+// app.get("/me", async (req, res) => {
+//   console.log(req.cookies);
+
+//   res.json({
+//     session: req.cookies.session,
+//   });
+// });
 
 app.get("/user", (req: Request, res: Response) => {
 	res.send("heyy");
@@ -134,4 +144,28 @@ app.get("/api/auth/callback", async (req: Request, res: Response) => {
 		console.log(error.response?.data?.message);
 		console.log(error.response?.data?.error);
 	}
+});
+
+app.post("/repos/connect", async (req: Request, res: Response) => {
+	const user = await getUserFromRequest(req);
+	if (!user) {
+		return res.status(400).send("User not found.");
+	}
+
+	const { repoUrl } = req.body;
+
+	const repo = await prisma.repo.create({
+		data: {
+			repoUrl,
+			userId: user.id,
+			indexStatus: "pending",
+		},
+	});
+
+	ingestRepo(repo.id, repoUrl);
+
+	res.json({
+		repoId: repo.id,
+		status: "queued",
+	});
 });
