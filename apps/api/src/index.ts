@@ -27,10 +27,6 @@ async function start() {
 
 start();
 
-app.get("/user", (req: Request, res: Response) => {
-	res.send("heyy");
-});
-
 app.get("/auth/github", (req: Request, res: Response) => {
 	const url = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&scope=repo`;
 	res.redirect(url);
