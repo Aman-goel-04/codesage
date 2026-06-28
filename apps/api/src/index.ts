@@ -27,14 +27,6 @@ async function start() {
 
 start();
 
-// app.get("/me", async (req, res) => {
-//   console.log(req.cookies);
-
-//   res.json({
-//     session: req.cookies.session,
-//   });
-// });
-
 app.get("/user", (req: Request, res: Response) => {
 	res.send("heyy");
 });

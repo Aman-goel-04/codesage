@@ -1,62 +1,51 @@
 import Parser from "tree-sitter";
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const ext = path.extname(__filename);
-const __dirname = path.dirname(__filename);
-
-const parser = new Parser();
-
-type Chunk = {
-type: string,
-name: string | null,
-startLine: number,
-endLine: number,
-sourceText: string,
-language: string,
-filePath: string
+function isFunctionNode(node: Parser.SyntaxNode | null): boolean {
+    return !!node && (
+        node.type === "arrow_function" ||
+        node.type === "function_expression" ||
+        node.type === "function_declaration"
+    );
 }
 
-function getNodeInfo(
-node: Parser.SyntaxNode,
-language: string,
-filePath: string,
-): Chunk | null {
-    let name: string | null = null;
+function hasToken(node: Parser.SyntaxNode, token: string): boolean {
+    return node.children.some(child => child.type === token);
+}
 
-    switch (node.type) {
-        case "function_declaration":
-        case "class_declaration":
-        case "method_definition": {
-            name = node.childForFieldName("name")?.text ?? null;
-            break;
-        }
+function isAsync(node: Parser.SyntaxNode): boolean {
+    return hasToken(node, "async");
+}
 
-        case "arrow_function":
-        case "function_expression": {
-            const variableDeclarator = node.parent;
+function isGenerator(node: Parser.SyntaxNode): boolean {
+    return hasToken(node, "*");
+}
 
-            if (
-                variableDeclarator &&
-                variableDeclarator.type === "variable_declarator"
-            ) {
-                name =
-                    variableDeclarator
-                        .childForFieldName("name")
-                        ?.text ?? null;
-            }
+function isExported(node: Parser.SyntaxNode): boolean {
+    let current: Parser.SyntaxNode | null = node;
 
-            break;
-        }
+    while (current) {
+        if (current.type === "export_statement")
+            return true;
 
-        default:
-            return null;
+        current = current.parent;
     }
 
+    return false;
+}
+
+function makeChunk(
+    node: Parser.SyntaxNode,
+    kind: Chunk["type"],
+    name: string | null,
+    language: string,
+    filePath: string,
+): Chunk {
     return {
-        type: node.type,
+        type: kind,
         name,
+        exported: isExported(node),
+        async: isAsync(node),
+        generator: isGenerator(node),
         startLine: node.startPosition.row + 1,
         endLine: node.endPosition.row + 1,
         sourceText: node.text,
@@ -65,7 +54,99 @@ filePath: string,
     };
 }
 
-const chunks: Chunk[] = [];
+
+type Chunk = {
+    type: "function" | "class" | "method";
+    name: string | null;
+    exported: boolean;
+    async: boolean;
+    generator: boolean;
+    startLine: number;
+    endLine: number;
+    sourceText: string;
+    language: string;
+    filePath: string;
+};
+
+function getNodeInfo(
+    node: Parser.SyntaxNode,
+    language: string,
+    filePath: string,
+): Chunk | null {
+
+    switch (node.type) {
+        case "function_declaration":
+            return makeChunk(
+                node,
+                "function",
+                node.childForFieldName("name")?.text ?? null,
+                language,
+                filePath,
+            );
+        case "class_declaration":
+            return makeChunk(
+                node,
+                "class",
+                node.childForFieldName("name")?.text ?? null,
+                language,
+                filePath,
+            );
+        case "method_definition":
+            return makeChunk(
+                node,
+                "method",
+                node.childForFieldName("name")?.text ??
+                node.childForFieldName("property")?.text ??
+                null,
+                language,
+                filePath,
+            );
+        case "variable_declarator": {
+
+            const value = node.childForFieldName("value");
+
+            if (!isFunctionNode(value))
+                return null;
+
+            const nameNode = node.childForFieldName("name");
+
+            if (
+                nameNode?.type === "object_pattern" ||
+                nameNode?.type === "array_pattern"
+            ) {
+                return null;
+            }
+
+            return makeChunk(
+                value!,
+                "function",
+                nameNode?.text ?? null,
+                language,
+                filePath,
+            );
+        }
+        case "pair": {
+
+            const value = node.childForFieldName("value");
+
+            if (!isFunctionNode(value))
+                return null;
+
+            return makeChunk(
+                value!,
+                "method",
+                node.childForFieldName("key")?.text ?? null,
+                language,
+                filePath,
+            );
+        }
+
+        default:
+            return null;
+    }
+}
+
+const chunks = [];
 
 function traverse(
     node: Parser.SyntaxNode,
@@ -82,4 +163,3 @@ function traverse(
         traverse(child, language, filePath);
     }
 }
-
