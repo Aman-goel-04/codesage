@@ -1,15 +1,28 @@
-import { useRouter } from "next/navigation";
+"use client";
 
 export default function Home() {
-  const router = useRouter();
+    return (
+        <button
+            onClick={async () => {
+                const res = await fetch(
+                    "http://localhost:3001/repos/connect",
+                    {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            repoUrl:
+                                "https://github.com/js-org/js.org",
+                        }),
+                    },
+                );
 
-  return (
-    <div>
-      <button onClick={() => {
-        router.push("http://localhost:3001/auth/github");
-      }}>
-        Connect Github 
-      </button>
-    </div>
-  );
+                console.log(await res.text());
+            }}
+        >
+            Connect Github
+        </button>
+    );
 }

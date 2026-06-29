@@ -10,11 +10,18 @@ import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import { getUserFromRequest } from "./middlewares/auth.middleware.js";
 import { ingestRepo } from "./services/ingestRepo.js";
+import cors from "cors";
 
 const app = express();
 
 app.use(cookieParser());
 app.use(express.json());
+app.use(
+	cors({
+		origin: "http://localhost:3000",
+		credentials: true,
+	}),
+);
 
 async function start() {
 	await prisma.$connect();
@@ -140,20 +147,26 @@ app.post("/repos/connect", async (req: Request, res: Response) => {
 		return res.status(400).send("User not found.");
 	}
 
-	const { repoUrl } = req.body;
+	try {
+		const { repoUrl } = req.body;
 
-	const repo = await prisma.repo.create({
-		data: {
-			repoUrl,
-			userId: user.id,
-			indexStatus: "pending",
-		},
-	});
+		const repo = await prisma.repo.create({
+			data: {
+				repoUrl,
+				userId: user.id,
+				indexStatus: "pending",
+			},
+		});
 
-	ingestRepo(repo.id, repoUrl);
+		void ingestRepo(repo.id, repoUrl).catch((err) => {
+			console.error(err);
+		});
 
-	res.json({
-		repoId: repo.id,
-		status: "queued",
-	});
+		res.json({
+			repoId: repo.id,
+			status: "queued",
+		});
+	} catch (error) {
+		console.log(error);
+	}
 });

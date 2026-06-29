@@ -1,3 +1,4 @@
+import Parser, { type Language } from "tree-sitter";
 import Javascript from "tree-sitter-javascript";
 import Typescript from "tree-sitter-typescript";
 
@@ -25,5 +26,21 @@ export function getLanguageFromExtension(extension: string) {
 		extension as keyof typeof EXTENSION_TO_LANGUAGE
 	];
 }
+
+function createParser(language: typeof Javascript) {
+    const parser = new Parser();
+    parser.setLanguage(language as Parser.Language);
+    return parser;
+}
+
+export const PARSERS = {
+    javascript: createParser(Javascript),
+    typescript: createParser(Typescript.typescript),
+    tsx: createParser(Typescript.tsx),
+} as const;
+
+type A = typeof Javascript;
+type B = Language;
+type C = Parameters<Parser["setLanguage"]>[0];
 
 export type SupportedLanguage = keyof typeof LANGUAGES;

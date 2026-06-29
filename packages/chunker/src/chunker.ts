@@ -1,11 +1,27 @@
 import Parser from "tree-sitter";
-import {
-	getLanguageFromExtension,
-	LANGUAGES,
-} from "@repo/chunker";
-import fs from "node:fs";
+import { getLanguageFromExtension, PARSERS } from "./language.js";
 import path from "node:path";
-const parser = new Parser();
+
+import type { SupportedLanguage } from "./language.js";
+
+export type ChunkType = "function" | "class" | "method" | "text";
+
+export type Chunk = {
+	type: ChunkType;
+	name: string | null;
+
+	isExported: boolean;
+	isAsync: boolean;
+	isGenerator: boolean;
+
+	startLine: number;
+	endLine: number;
+
+	sourceText: string;
+
+	language: SupportedLanguage | "unknown";
+	filePath: string;
+};
 
 function isFunctionNode(node: Parser.SyntaxNode | null): boolean {
 	return (
@@ -44,15 +60,15 @@ function makeChunk(
 	node: Parser.SyntaxNode,
 	kind: Chunk["type"],
 	name: string | null,
-	language: string,
+	language: SupportedLanguage | "unknown",
 	filePath: string,
 ): Chunk {
 	return {
 		type: kind,
 		name,
-		exported: isExported(node),
-		async: isAsync(node),
-		generator: isGenerator(node),
+		isExported: isExported(node),
+		isAsync: isAsync(node),
+		isGenerator: isGenerator(node),
 		startLine: node.startPosition.row + 1,
 		endLine: node.endPosition.row + 1,
 		sourceText: node.text,
@@ -61,22 +77,9 @@ function makeChunk(
 	};
 }
 
-export type Chunk = {
-	type: "function" | "class" | "method" | "text";
-	name: string | null;
-	exported: boolean;
-	async: boolean;
-	generator: boolean;
-	startLine: number;
-	endLine: number;
-	sourceText: string;
-	language: string;
-	filePath: string;
-};
-
 function getNodeInfo(
 	node: Parser.SyntaxNode,
-	language: string,
+	language: SupportedLanguage | "unknown",
 	filePath: string,
 ): Chunk | null {
 	switch (node.type) {
@@ -149,7 +152,7 @@ function getNodeInfo(
 
 function traverse(
 	node: Parser.SyntaxNode,
-	language: string,
+	language: SupportedLanguage | "unknown",
 	filePath: string,
 	chunks: Chunk[],
 ) {
@@ -166,59 +169,69 @@ function traverse(
 
 function chunkFallback(
 	content: string,
-	language: string,
+	language: SupportedLanguage | "unknown",
 	filePath: string,
 ): Chunk[] {
 	const CHUNK_SIZE = 1200; //1k characters
 	const OVERLAP = 200; //overlap size;to not lose context, will make these windows: 0-1200, 1000-2200, ...
 
 	const chunks: Chunk[] = [];
+
+	let currentLine = 1;
 	let start = 0;
 
 	while (start < content.length) {
 		const end = Math.min(start + CHUNK_SIZE, content.length);
-		const text = content.slice(start, end);
-		const startLine = content.slice(0, start).split("\n").length;
 
-		const endLine = content.slice(0, end).split("\n").length;
+		const text = content.slice(start, end);
+
+		const endLine = currentLine + (text.match(/\n/g)?.length ?? 0);
 
 		chunks.push({
 			type: "text",
 			name: null,
-			exported: false,
-			async: false,
-			generator: false,
-			startLine,
+			isExported: false,
+			isAsync: false,
+			isGenerator: false,
+			startLine: currentLine,
 			endLine,
 			sourceText: text,
 			language,
 			filePath,
 		});
 
-		start += CHUNK_SIZE - OVERLAP;
-	}
+		const overlapStart = end - OVERLAP;
 
+		currentLine =
+			(content.slice(0, overlapStart).match(/\n/g)?.length ?? 0) + 1;
+
+		if (end === content.length) {
+			break;
+		}
+
+		start = Math.max(start + 1, end - OVERLAP);
+	}
 	return chunks;
 }
 
-export function chunkFile(filePath: string): Chunk[] {
-	const content = fs.readFileSync(filePath, "utf8");
-
+export function chunkFile(filePath: string, fileContent: string): Chunk[] {
 	const extension = path.extname(filePath);
-
 	const language = getLanguageFromExtension(extension);
 
-	if (!language) {
-		return chunkFallback(content, "unknown", filePath);
+	if (!language) return chunkFallback(fileContent, "unknown", filePath);
+
+	try {
+		const tree = PARSERS[language].parse(fileContent);
+
+		const chunks: Chunk[] = [];
+
+		traverse(tree.rootNode, language, filePath, chunks);
+
+		if (chunks.length === 0)
+			return chunkFallback(fileContent, "unknown", filePath);
+
+		return chunks;
+	} catch {
+		return chunkFallback(fileContent, "unknown", filePath);
 	}
-
-	parser.setLanguage(LANGUAGES[language]);
-
-	const chunks: Chunk[] = [];
-
-	const tree = parser.parse(content);
-
-	traverse(tree.rootNode, language, filePath, chunks);
-
-	return chunks;
 }

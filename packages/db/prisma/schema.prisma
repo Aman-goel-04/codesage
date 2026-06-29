@@ -39,21 +39,22 @@ enum RepoIndexStatus {
 }
 
 model Repo {
-  id                    String   @id @default(cuid())
-  repoUrl               String   @unique
-  defaultBranch         String   @default("main")
-  lastIndexedCommitSha  String?
-  isIndexed             Boolean  @default(false)
-  indexStatus           RepoIndexStatus    @default(pending) // pending | indexing | done | failed
+  id                   String          @id @default(cuid())
+  repoUrl              String          @unique
+  defaultBranch        String          @default("main")
+  lastIndexedCommitSha String?
+  isIndexed            Boolean         @default(false)
+  indexStatus          RepoIndexStatus @default(pending) // pending | indexing | done | failed
 
   userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   chatSessions ChatSession[]
   files        RepoFile[]
+  chunks       RepoChunk[]
 
   @@index([userId])
   @@map("repos")
@@ -65,9 +66,10 @@ model RepoFile {
   content String
 
   repoId String
-  repo   Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repo   Repo   @relation(fields: [repoId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
+  chunks    RepoChunk[]
 
   @@unique([repoId, path])
   @@index([repoId])
@@ -111,7 +113,7 @@ enum MessageRole {
 }
 
 model Message {
-  id      String       @id @default(cuid())
+  id      String      @id @default(cuid())
   role    MessageRole
   content String
 
@@ -138,4 +140,49 @@ model ToolCallLog {
 
   @@index([chatSessionId])
   @@map("tool_call_logs")
+}
+
+enum ChunkType {
+  function
+  class
+  method
+  text
+}
+
+enum Language {
+  javascript
+  typescript
+  tsx
+  unknown
+}
+
+model RepoChunk {
+  id String @id @default(cuid())
+
+  type ChunkType
+  name String?
+
+  language Language
+
+  startLine Int
+  endLine   Int
+
+  sourceText String
+
+  isExported  Boolean
+  isAsync     Boolean
+  isGenerator Boolean
+
+  repoId String
+  repo   Repo   @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  fileId String
+  file   RepoFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([fileId, startLine, endLine])
+  @@index([repoId])
+  @@index([fileId])
+  @@map("repo_chunks")
 }
