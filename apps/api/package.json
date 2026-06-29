@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@repo/chunker": "workspace:^",
     "@repo/db": "workspace:^",
     "@repo/ui": "*",
     "@types/express": "^5.0.6",
